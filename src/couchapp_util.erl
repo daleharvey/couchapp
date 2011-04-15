@@ -47,8 +47,6 @@ db_from_string(DbString) ->
     end,
     Url = ibrowse_lib:parse_url(DbUrl),
 
-    Server = couchbeam:server_connection(Url#url.host, Url#url.port),
-
     Options = case Url#url.username of
         undefined -> [];
         Username ->
@@ -60,8 +58,11 @@ db_from_string(DbString) ->
             end
     end,
 
+    Server = couchbeam:server_connection(Url#url.host, Url#url.port,
+                                         "", Options),
+
     "/" ++ DbName = Url#url.path,
-    {ok, Db} = couchbeam:open_or_create_db(Server, DbName, Options),
+    {ok, Db} = couchbeam:open_or_create_db(Server, DbName),
     Db.
 
 %% @doc fetch a couchbeam database handler by being given a url (string) or
@@ -92,8 +93,6 @@ parse_couchapp_url(AppUrl) ->
 
     case parse_couchapp_path(PathParts) of
         {DbName, AppName, DocId} ->
-            Server = couchbeam:server_connection(Url#url.host,
-                Url#url.port),
             Options = case Url#url.username of
                 undefined -> [];
                 Username ->
@@ -104,8 +103,9 @@ parse_couchapp_url(AppUrl) ->
                             [{basic_auth, {Username, Password}}]
                     end
             end,
-            {ok, Db} = couchbeam:open_or_create_db(Server, DbName,
-                Options),
+            Server = couchbeam:server_connection(Url#url.host, Url#url.port,
+                                                 Options),
+            {ok, Db} = couchbeam:open_or_create_db(Server, DbName),
             {ok, Db, AppName, DocId};
         Error ->
             Error
