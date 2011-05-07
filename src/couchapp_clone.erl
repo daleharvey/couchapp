@@ -9,6 +9,7 @@
 
 -export([clone/2]).
 
+-export([do_clone/4]).
 %% ====================================================================
 %% Public API
 %% ====================================================================
@@ -19,7 +20,7 @@ clone([Url, Path|_], Config) ->
     clone1(filename:absname(Path), Url, Config);
 clone(_, _) ->
     ?ERROR("missing arguments. Command line should be :'couchapp clone "
-       ++ "URL [CouchappDir]", []),
+       ++ "URL [CouchappDir]~n", []),
     halt(1).
 
 %% ====================================================================
@@ -37,11 +38,11 @@ clone1(Path, Url, Config) ->
             end,
             case couchapp_util:in_couchapp(Path1) of
                 {ok, _} ->
-                    ?ERROR("Can't clone in an existing couchapp.~n",
-                        []),
+                    ?ERROR("Can't clone in an existing couchapp.~n", []),
                     halt(1);
                 _ ->
-                do_clone(Path1, DocId, Db, Config)
+                    do_clone(Path1, DocId, Db, Config),
+                    ?INFO("clone success. ~n", [])
             end;
         Error ->
             ?ERROR("clone: ~p~n", [Error])
@@ -77,17 +78,16 @@ do_clone(Path, DocId, Db, Config) ->
                         end
                 end, [], Manifest),
 
-            {Objects} = couchbeam_doc:get_value(<<"objects">>, Meta,
+            Objects = couchbeam_doc:get_value(<<"objects">>, Meta,
                 {[]}),
             % save doc to the fs, create approriate paths if needed
             {DocProps} = Doc,
             ok = doc_to_fs(DocProps, Path, Manifest1, Objects, 0),
 
             % save attachments
-            ok = attachments_to_fs(Atts1, Db, DocId, AttDir),
-            ?INFO("clone success. ~n", []);
+            ok = attachments_to_fs(Atts1, Db, DocId, AttDir);
         Error ->
-            ?ERROR("clone error: [~p]~n", [Error]),
+            ?ERROR("error: [~p]~n", [Error]),
             halt(1)
     end,
     ok.
@@ -101,11 +101,15 @@ attachments_to_fs([AttName|Rest], Db, DocId, AttDir) ->
     ok = couchapp_util:make_dir(Dir),
 
     %% we stream attachments.
-    {ok, Fd} = file:open(Path, [write]),
-    {ok, Ref} = couchbeam:stream_fetch_attachment(Db, DocId, AttName1,
-        self()),
-    wait_for_attachment(Ref, Fd, AttName1, Rest, Db, DocId, AttDir).
-
+    case file:open(Path, [write]) of
+        {ok, Fd} ->
+            {ok, Ref} = couchbeam:stream_fetch_attachment(Db, DocId, AttName1,
+                                                          self()),
+            wait_for_attachment(Ref, Fd, AttName1, Rest, Db, DocId, AttDir);
+        {error, _} ->
+            ?ERROR("error writing attachment: ~p~n", [Path]),
+            attachments_to_fs(Rest, Db, DocId, AttDir)
+    end.
 
 wait_for_attachment(Ref, Fd, AttName, Rest, Db, DocId, AttDir) ->
     receive

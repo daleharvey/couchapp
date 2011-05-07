@@ -179,6 +179,8 @@ commands() ->
     S = <<"
 init                                 initialize a couchapp
 push        [options...] [dir] dest  push a document to couchdb
+pull        [options...] source      pull a document from couchdb
+                                     to the filesystem
 clone       [option] source dir      clone a document from couchdb
 pushapps    [option] source dest     push all CouchApps in a folder
                                      to couchdb
