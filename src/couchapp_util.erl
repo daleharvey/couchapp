@@ -107,7 +107,7 @@ parse_couchapp_url(AppUrl) ->
                     end
             end,
             Server = couchbeam:server_connection(Url#url.host, Url#url.port,
-                                                 Options),
+                                                 [], Options),
             {ok, Db} = couchbeam:open_or_create_db(Server, DbName),
             {ok, Db, AppName, DocId};
         Error ->
